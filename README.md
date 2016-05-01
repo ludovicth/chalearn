@@ -1,6 +1,11 @@
-# chalearn
 
-With Jun Jie Ng and Moncef Biaz
-Project CS289A at UC Berkeley
+# ReadMe
 
-https://competitions.codalab.org/competitions/2321
+## Chalearn project CS 289
+
+Team:
+- Ludo
+- Moncef
+- JJ
+
+## We used imad starting kit 

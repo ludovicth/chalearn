@@ -149,7 +149,7 @@ overwrite_output = True # save space
 # Use default location for the input and output data:
 # If no arguments to run.py are provided, this is where the data will be found
 # and the results written to. Change the root_dir to your local directory.
-root_dir = "/home/imad/Documents/AutoMl_Challenge/Starting_kit/"
+root_dir = '../'
 default_input_dir = root_dir + "sample_input/" 
 default_output_dir = root_dir + "sample_code_submission/res"
 
