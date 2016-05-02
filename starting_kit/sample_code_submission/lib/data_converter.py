@@ -13,8 +13,11 @@
 # PUBLICATIONS, OR INFORMATION MADE AVAILABLE FOR THE CHALLENGE. 
 
 import numpy as np
+import pandas as pd
 from scipy.sparse import *
 from sklearn.datasets import load_svmlight_file
+from sklearn.base import TransformerMixin
+
 import os 
 # Note: to check for nan values np.any(map(np.isnan,X_train))
 def file_to_array (filename, verbose=False):
@@ -53,44 +56,44 @@ def file_to_libsvm (filename, data_binary  , n_features):
     return l[0]
 
 def read_first_line (filename):
-	''' Read fist line of file'''
-	data =[]
-	with open(filename, "r") as data_file:
-		line = data_file.readline()
-		data = line.strip().split()
-	return data  
+    ''' Read fist line of file'''
+    data =[]
+    with open(filename, "r") as data_file:
+        line = data_file.readline()
+        data = line.strip().split()
+    return data  
  
 def num_lines (filename):
-	''' Count the number of lines of file'''
-	return sum(1 for line in open(filename))
+    ''' Count the number of lines of file'''
+    return sum(1 for line in open(filename))
 
 def binarization (array):
-	''' Takes a binary-class datafile and turn the max value (positive class) into 1 and the min into 0'''
-	array = np.array(array, dtype=float) # conversion needed to use np.inf after
-	if len(np.unique(array)) > 2:
-		raise ValueError ("The argument must be a binary-class datafile. {} classes detected".format(len(np.unique(array))))
-	
-	# manipulation which aims at avoid error in data with for example classes '1' and '2'.
-	array[array == np.amax(array)] = np.inf
-	array[array == np.amin(array)] = 0
-	array[array == np.inf] = 1
-	return np.array(array, dtype=int)
+    ''' Takes a binary-class datafile and turn the max value (positive class) into 1 and the min into 0'''
+    array = np.array(array, dtype=float) # conversion needed to use np.inf after
+    if len(np.unique(array)) > 2:
+        raise ValueError ("The argument must be a binary-class datafile. {} classes detected".format(len(np.unique(array))))
+    
+    # manipulation which aims at avoid error in data with for example classes '1' and '2'.
+    array[array == np.amax(array)] = np.inf
+    array[array == np.amin(array)] = 0
+    array[array == np.inf] = 1
+    return np.array(array, dtype=int)
 
 
 def multilabel_to_multiclass (array):
-	array = binarization (array)
-	return np.array([np.nonzero(array[i,:])[0][0] for i in range (len(array))])
-	
+    array = binarization (array)
+    return np.array([np.nonzero(array[i,:])[0][0] for i in range (len(array))])
+    
 def convert_to_num(Ybin, verbose=True):
-	''' Convert binary targets to numeric vector (typically classification target values)'''
-	if verbose: print("\tConverting to numeric vector")
-	Ybin = np.array(Ybin)
-	if len(Ybin.shape) ==1:
+    ''' Convert binary targets to numeric vector (typically classification target values)'''
+    if verbose: print("\tConverting to numeric vector")
+    Ybin = np.array(Ybin)
+    if len(Ybin.shape) ==1:
          return Ybin
-	classid=range(Ybin.shape[1])
-	Ycont = np.dot(Ybin, classid)
-	if verbose: print Ycont
-	return Ycont
+    classid=range(Ybin.shape[1])
+    Ycont = np.dot(Ybin, classid)
+    if verbose: print Ycont
+    return Ycont
  
 def convert_to_bin(Ycont, nval, verbose=True):
     ''' Convert numeric vector to binary (typically classification target values)'''
@@ -126,13 +129,38 @@ def tp_filter(X, Y, feat_num=1000, verbose=True):
     else:
         feat_num = X.shape[1]
         return range(feat_num)
-    
-def replace_missing(X):
-    # This is ugly, but
+
+def replace_missing(data, feat_type):
+    # replace missing value by most common if categorical and by mean if numerical
     try:
-        if X.getformat()=='csr':
-            return X
+        if data.getformat()=='csr':
+            return data
     except:
-        XX = np.nan_to_num(X)
+        print "FEATURE TYPE",type(feat_type)
+        X = pd.DataFrame(data)
+        xt = DataFrameImputer(feat_type).fit_transform(X,feat_type)
+    return np.asarray(xt)
+
+class DataFrameImputer(TransformerMixin):
+
+    def __init__(self, feature_type):
+        """Impute missing values.
+
+        Columns of dtype object are imputed with the most frequent value 
+        in column.
+
+        Columns of other types are imputed with mean of column.
+
+        """
+        self.feat_type = feature_type
         
-    return XX
+    def fit(self, X, y=None):
+        self.fill = pd.Series([X.iloc[:,c].value_counts().index[0]
+            if self.feat_type[c] == 'categorical' else np.mean(X.iloc[:,c]) for c in xrange(X.shape[1])],
+            index=X.columns)
+
+        return self
+
+    def transform(self, X, y=None):
+        return X.fillna(self.fill)
+    
