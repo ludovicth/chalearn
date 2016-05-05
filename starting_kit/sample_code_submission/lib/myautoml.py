@@ -5,8 +5,12 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
+from sklearn.cross_validation import KFold
+from keras.models import Sequential
+from keras.layers.core import Dense, Activation
 import operator
 import copy
+from libscores import *
 
 class MyAutoML:
     '''
@@ -63,6 +67,31 @@ class MyAutoML:
 
         Tunes neural net with hp.    
         '''
+        n_samples, n_feat = X.shape
+        b_size = n_samples/100
+        hidden_units = 32   #will be changed to use values from hyperparameter list
+        cv_folds = 10
+        kf = KFold(n_samples, cv_folds, shuffle=True)
+
+        #create neural net
+        clf  = Sequential()
+        clf.add(Dense(hidden_units, input_dim=n_feat, activation='sigmoid'))
+        clf.add(Dense(self.target_num, activation = 'sigmoid'))
+        clf.compile(optimizer='sgd', loss='mean_squared_error')
+        
+        score_total = 0 #running total of metric score over all cv runs
+        for train_index, test_index in kf:
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+            
+            clf.fit(X_train, Y_train, nb_epoch=5, batch_size=b_size, validation_split = 0.2)
+            cv_pred = clf.predict(X_test, batch_size = b_size)
+            score = eval(info['metric'] + '(y_test, cv_pred, "' + info['task'] + '")')
+            score_total += score
+
+        best_score = score_total/cv_folds
+        best_clf = clf
+
         return best_clf, best_score
 
     def train_RF(self, X, y, hp):
