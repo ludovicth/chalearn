@@ -87,6 +87,7 @@ class DataManager:
         if filter_features: # add hoc feature selection, for the example...
             fn = min(Xtr.shape[1], 1000)       
             idx = data_converter.tp_filter(Xtr, Ytr, feat_num=fn, verbose=verbose)
+            print "INDEX",idx
             Xtr = Xtr[:,idx]
             Xva = Xva[:,idx]
             Xte = Xte[:,idx]  
@@ -132,8 +133,9 @@ class DataManager:
         # INPORTANT: when we replace missing values we double the number of variables
   
         if self.info['format']=='dense' and replace_missing and np.any(map(np.isnan,data)):
-            vprint (verbose, "Replace missing values by 0 (slow, sorry)")
-            data = data_converter.replace_missing(data, self.feat_type)
+            vprint (verbose, "Replace missing values by mean is numerical and most frequent if categorical")
+            data = data_converter.preprocess(data, self.feat_type)  # deal with missing values
+            
         if self.use_pickle:
             with open (os.path.join (self.tmp_dir, os.path.basename(filename) + ".pickle"), "wb") as pickle_file:
                 vprint (verbose, "Saving pickle file : " + os.path.join (self.tmp_dir, os.path.basename(filename) + ".pickle"))

@@ -17,8 +17,10 @@ import pandas as pd
 from scipy.sparse import *
 from sklearn.datasets import load_svmlight_file
 from sklearn.base import TransformerMixin
-
+from sklearn.preprocessing import scale
+from sklearn.preprocessing import Imputer
 import os 
+
 # Note: to check for nan values np.any(map(np.isnan,X_train))
 def file_to_array (filename, verbose=False):
     ''' Converts a file to a list of list of STRING
@@ -130,16 +132,53 @@ def tp_filter(X, Y, feat_num=1000, verbose=True):
         feat_num = X.shape[1]
         return range(feat_num)
 
+def preprocess(data, feat_type):
+    # replace missing value by most common if categorical and by mean if numerical
+    try:
+        if data.getformat()=='csr':
+            return data
+    except:
+        print feat_type
+        # separate numerical and categorical columns
+        idx_num = [i for i in xrange(len(feat_type)) if feat_type[i] == 'Numerical']
+        data_num = data[:,idx_num]
+        idx_cat = [i for i in xrange(len(feat_type)) if feat_type[i] == 'Categorical']
+        data_cat = data[:,idx_cat]
+        # fill missing values
+        imp_num = Imputer(axis = 0)
+        data_num = imp_num.fit_transform(data_num)
+        imp_cat = Imputer(axis = 0, strategy='most_frequent')
+        data_cat = imp_cat.fit_transform(data_cat)
+        # retrieve mean and divide by standard deviation
+        data_num = scale(data_num)
+        # one-hot encode using pandas
+        # have to do it column by column because of pandas
+        data_cat_pd = pd.DataFrame(data_cat)
+        for i in xrange(data_cat.shape[1]):
+            data_cat_pd = pd.concat((data_cat_pd, pd.get_dummies(data_cat[:,i])),join = 'outer', axis = 1)
+        # delete the columns that have been one hot encoded; need to rename first,
+        # otherwise some columns may be suppressed unwillingly
+        data_cat_pd.columns = [i for i in xrange(data_cat_pd.shape[1])]
+        data_cat_pd = data_cat_pd.drop(data_cat_pd.iloc[:,[i for i in xrange(data_cat.shape[1])]],axis =1)
+        data_cat = np.asarray(data_cat_pd)
+
+        # regroup categorical and numerical variables
+        return np.hstack((data_num,data_cat))
+
 def replace_missing(data, feat_type):
     # replace missing value by most common if categorical and by mean if numerical
     try:
         if data.getformat()=='csr':
             return data
     except:
-        print "FEATURE TYPE",type(feat_type)
         X = pd.DataFrame(data)
         xt = DataFrameImputer(feat_type).fit_transform(X,feat_type)
     return np.asarray(xt)
+
+def scaling(data,feat_type):
+    idx = [i for i in xrange(len(feat_type)) if feat_type[i] == 'numerical']
+    data_num = data[:,idx]
+    
 
 class DataFrameImputer(TransformerMixin):
 
