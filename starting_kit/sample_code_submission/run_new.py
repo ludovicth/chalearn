@@ -248,11 +248,11 @@ if __name__ == '__main__':
         vprint( verbose,  "======== Creating model ==========")
         M = MyAutoML(D.info, verbose=False, debug_mode=debug_mode) # I turned off verbose to avoid tons of junk...
         print M
-        
+
         # Does cross validation for all models and picks the best classifier
         # Probably need to pass in the time remaining since timekeeping needs to be done in here
         # -------------------
-        M.fit(D.data['X_train'], D.data['Y_train']) 
+        M.run_cycles(D.data['X_train'], D.data['Y_train']) 
         vprint( verbose,  "[+] Fitting success, time spent so far %5.2f sec" % (time.time() - start))
         vprint( verbose,  "[+] Size of trained model  %5.2f bytes" % data_io.total_size(M))
 
