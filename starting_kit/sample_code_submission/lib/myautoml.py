@@ -61,34 +61,27 @@ class MyAutoML:
         best_nn_af = 'sigmoid'
         reuse_weights = False
 
-        hp_rf_all = {}
-        hp_rf_all['n_estimators'] = [20,50,100,150,200,300,400,500,600,700,800,900,1000,1200,1500,2000,3000,4000,5000]
+
+        hp_rf_all = [20,50,100,150,200,300,400,500,600,700,800,900,1000,1200,1500,2000,3000,4000,5000]
         
-        hp_lda_all = {}
-        hp_lda_all['n_components'] = [1,10,50,100,200,300,400,500,600,700,800,1000]
-        hp_qda_all = {}
-        hp_qda_all['reg_param'] =[.00001,.0001,.001,.01,.1,1,10,100,1000,10000]
+        hp_lda_all = [1,10,50,100,200,300,400,500,600,700,800,1000]
+        hp_qda_all = [.00001,.0001,.001,.01,.1,1,10,100,1000,10000]
 
         while ((tmp_time-start) < time_budget):
             # initialize best classifiers during first cycle
             if cycle_count == 0:
-                hp_qda = {}
-                tmp = choice(hp_qda_all['reg_param'])
-                hp_qda['reg_param'] = [tmp]
-                hp_qda_all['reg_param'].remove(tmp)
                 
-                hp_lda = {}
-                tmp = choice(hp_lda_all['n_components'])
-                hp_lda['n_components'] = [tmp]
-                hp_lda_all['n_components'].remove(tmp)
+                hp_qda = choice(hp_qda_all)
+                hp_qda_all.remove(hp_qda)
+                
+                hp_lda = choice(hp_lda_all)
+                hp_lda_all.remove(hp_lda)
 
-                hp_rf = {}
-                tmp = hp_rf_all['n_estimators'][0]
-                hp_rf['n_estimators'] = [tmp]
-                hp_rf_all['n_estimators'].remove(tmp)
+                hp_rf = hp_rf_all[0]
+                hp_rf_all.remove(hp_rf)
 
                 da, da_score = self.train_DA(X,y, hp_lda, hp_qda)
-                nn, nn_score  = self.train_NN(X,y,best_nn_lr, best_nn_bs, best_nn_af, reuse_weights)
+                nn, nn_score,pca  = self.train_NN(X,y,best_nn_lr, best_nn_bs, best_nn_af, reuse_weights)
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # initialize the best classifiers
                 best_da, best_da_score = da, da_score
@@ -100,20 +93,14 @@ class MyAutoML:
 
             if cycle_count > 0:
                 #set hyperparameters to test
-                hp_qda = {}
-                tmp = choice(hp_qda_all['reg_param'])
-                hp_qda['reg_param'] = [tmp]
-                hp_qda_all['reg_param'].remove(tmp)
+                hp_qda = choice(hp_qda_all)
+                hp_qda_all.remove(hp_qda)
                 
-                hp_lda = {}
-                tmp = choice(hp_lda_all['n_components'])
-                hp_lda['n_components'] = [tmp]
-                hp_lda_all['n_components'].remove(tmp)
-                
-                hp_rf = {}
-                tmp = hp_rf_all['n_estimators'][0]
-                hp_rf['n_estimators'] = [tmp]
-                hp_rf_all['n_estimators'].remove(tmp)
+                hp_lda = choice(hp_lda_all)
+                hp_lda_all.remove(hp_lda)
+
+                hp_rf = hp_rf_all[0]
+                hp_rf_all.remove(hp_rf)
 
                 if len(hp_nn_all['learning_rate']) > 0:
                     nn_lr = hp_nn_all['learning_rate'][0]
@@ -140,7 +127,7 @@ class MyAutoML:
                     reuse_weights = True
 
                 da, da_score = self.train_DA(X,y, hp_lda,hp_qda)
-                nn, nn_score  = self.train_NN(X,y,nn_lr, nn_bs, nn_af, reuse_weights)
+                nn, nn_score,pca  = self.train_NN(X,y,nn_lr, nn_bs, nn_af, reuse_weights)
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # update the best classifiers
                 if nn_score > best_nn_score:
@@ -184,10 +171,11 @@ class MyAutoML:
 
         return p
 
-    def train_DA(self, X, y, hp_lda, hp_qda):
+    def train_DA(self, X, y, lda_comp, qda_reg):
         '''
         Input: 
-            None
+            qda_reg - reg_param
+            lda_comp - n_components
             X - data matrix (train_num, feat_num)
             y - target labels matrix (train_num, label_num)
 
@@ -197,29 +185,43 @@ class MyAutoML:
 
         Find best DA classifier.
         '''
+        n_samples, n_feat = X.shape
+        cv_folds = 10
+        kf = KFold(n_samples, cv_folds, shuffle=False)
 
-        # We put the callable corresponding to the metric method when we call Grid Search
-        scorer = make_scorer(self.metric_map[self.metric], task = self.task)
+        
+        
+        lda = LinearDiscriminantAnalysis(n_components = lda_comp)
+        qda = QuadraticDiscriminantAnalysis(reg_param = qda_reg)
+        score_total_lda = 0 #running total of metric score over all cv runs
+        score_total_qda = 0 #running total of metric score over all cv runs
+        for train_index, test_index in kf:
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+            
+            lda.fit(X_train, y_train)
+            cv_pred_lda = lda.predict(X_test)
+            score_lda = eval(self.metric + '(y_test[:,None], cv_pred_lda[:,None], "' + self.task + '")')
+            score_total_lda += score_lda
+            
+            qda.fit(X_train,y_train)
+            cv_pred_qda = qda.predict(X_test)
+            score_qda = eval(self.metric + '(y_test[:,None], cv_pred_lda[:,None], "' + self.task + '")')
+            score_total_qda += score_qda
 
-        # We try the LDA
-        lda = LinearDiscriminantAnalysis()
-        grid_result_lda = grid_search.GridSearchCV(lda, hp_lda, scoring = scorer)
-        grid_result_lda.fit(X, y)
-        best_clf_lda = grid_result_lda.best_estimator_
-        best_score_lda = grid_result_lda.best_score_
+        score_lda = score_total_lda/cv_folds
+        score_qda = score_total_qda/cv_folds
         
-        # We do the same for the QDA
-        qda = QuadraticDiscriminantAnalysis()
-        grid_result_qda = grid_search.GridSearchCV(qda, hp_qda, scoring = scorer)
-        grid_result_qda.fit(X, y)
-        best_clf_qda = grid_result_qda.best_estimator_
-        best_score_qda = grid_result_qda.best_score_
-        
+        print "Score QDA",score_qda
+        print "Score LDA",score_lda
+
         # We keep the best one
-        if(best_score_qda > best_score_lda):
-            return best_clf_qda, best_score_qda
+        if(score_qda > score_lda):
+            qda.fit(X,y)
+            return qda, score_qda
         else:
-            return best_clf_lda, best_score_lda
+            lda.fit(X,y)
+            return lda, score_lda
 
     def train_NN(self, X, y, lr, bs, af, reuse_weights = False):
         '''
@@ -234,6 +236,7 @@ class MyAutoML:
         Output: 
             best_clf - best classifier trained with hp
             best_score - CV score of best classifier
+            pca - PCA used for dimensionality reduction
 
         Tunes neural net with hp.    
         '''
@@ -261,7 +264,7 @@ class MyAutoML:
         
         score_total = 0 #running total of metric score over all cv runs
         for train_index, test_index in kf:
-            X_train, X_test = X[train_index], X[test_index]
+            X_train, X_test = X[train_index], X[test_index] 
             y_train, y_test = y[train_index], y[test_index]
             
             clf.fit(X_train, y_train, nb_epoch=5, batch_size=b_size, verbose = 0)
@@ -270,41 +273,48 @@ class MyAutoML:
             score_total += score
 
         clf.save_weights('nn_weights.h5', overwrite=True)
-        for i, pred in enumerate(cv_pred):
-            print pred, y_test[i]
-
+        
         best_score = score_total/cv_folds
         best_clf = clf
 
-        return best_clf, best_score
+        return best_clf, best_score, pca
 
-    def train_RF(self, X, y, hp):
+    def train_RF(self, X, y, n_est):
         '''
         Input: 
-            hp - dictionary with hyperparameter name as keys and values as values (refer to format in sklearn.grid_search.GridSearchCV)
+            n_est - number of estimators 
             example: {n_trees: [10, 100, 1000]}
             X - data matrix (train_num, feat_num)
             y - target labels matrix (train_num, label_num)
 
         Output: 
-            best_clf - best classifier trained with hp
-            best_score - CV score of best classifier
+            rf - classifier 
+            score - CV score of classifier
 
         Tunes random forest with hp.    
         '''
+        n_samples, n_feat = X.shape
+        rf = RandomForestClassifier(n_estimators = n_est)
+        cv_folds = 10
+        kf = KFold(n_samples, cv_folds, shuffle=False)
 
-        # We put the callable corresponding to the metric method when we call Grid Search
-        scorer = make_scorer(self.metric_map[self.metric], task = self.task)
+        print "random forest defined", rf
 
-        rf = RandomForestClassifier()
-        grid_result = grid_search.GridSearchCV(rf, hp, scoring = scorer)
-        grid_result.fit(X, y)
-        best_clf = grid_result.best_estimator_
-        best_score = grid_result.best_score_
-        
-        return best_clf, best_score
+        score_total = 0 #running total of metric score over all cv runs
+        for train_index, test_index in kf:
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+            
+            rf.fit(X_train, y_train)
+            cv_pred = rf.predict(X_test)
+            score = eval(self.metric + '(y_test[:,None], cv_pred[:,None], "' + self.task + '")')
+            score_total += score
+            
+        score = score_total/cv_folds
+        rf.fit(X,y)
+        return rf, score
 
-    def ensemble_CV(self, da, nn, rf, X, y):
+    def ensemble_CV(self, da, nn, pca, rf, X, y):
         '''
         Input:
             da - best da classifier
@@ -317,7 +327,7 @@ class MyAutoML:
 
         Used to find out if ensemble method does better at CV then individual classifier.
         '''
-        pred = self.ensemble_predict(da,nn,rf,X,y)
+        pred = self.ensemble_predict(da,nn,pca, rf,X)
 
         if self.metric == 'r2_metric':
             score = r2_metric(y, pred)
@@ -332,7 +342,7 @@ class MyAutoML:
 
         return score
 
-    def ensemble_predict(self, da, nn, rf, test):
+    def ensemble_predict(self, da, nn, pca, rf, test):
         '''
         Input:
             da - best da classifier
@@ -347,8 +357,17 @@ class MyAutoML:
         # We predict the new values for the test matrix, using the different input classifiers
         # WARNING: is test shape adapted? What about multiclass classification problems?
         votes = np.zeros((test.shape[0], 3))
+        print "da.predict(test)[:,None].shape",da.predict(test)[:,None].shape
+        print votes.shape
+
+        test_pca = pca.transform(test)[:,None]
+        #print test.shape
+        #print test_pca.reshape(test_pca.shape[0],-1)
+        #print test_pca.shape
+        test_pca = test_pca.reshape(test_pca.shape[0],-1).shape
+
         votes[:, 0] = da.predict(test)
-        votes[:, 1] = nn.predict(test)
+        votes[:, 1] = nn.predict(np.asarray(test_pca))
         votes[:, 2] = rf.predict(test)
         
         # We make them vote, and build the final y_pred using those votes
