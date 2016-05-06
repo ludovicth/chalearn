@@ -91,13 +91,11 @@ class MyAutoML:
             X - data matrix (train_num, feat_num)
             y - target labels matrix (train_num, label_num)
         Output:
-            pred - predictions on X
             score - CV score of ensemble classifier
 
         Used to find out if ensemble method does better at CV then individual classifier.
         '''
         pred = self.ensemble_predict(da,nn,rf,X,y)
-        self.metric
 
         if self.metric == 'r2_metric':
             score = libscores.r2_metric(y, pred)
@@ -110,7 +108,7 @@ class MyAutoML:
         if self.metric == 'pac_metric':
             score = libscores.pac_metric(y, pred)
 
-        return pred, score
+        return score
 
     def ensemble_predict(self, da, nn, rf, test):
         '''
