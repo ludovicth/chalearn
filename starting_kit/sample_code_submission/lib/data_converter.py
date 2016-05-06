@@ -20,6 +20,7 @@ from sklearn.base import TransformerMixin
 from sklearn.preprocessing import scale
 from sklearn.preprocessing import Imputer
 import os 
+from sklearn.decomposition import PCA
 
 # Note: to check for nan values np.any(map(np.isnan,X_train))
 def file_to_array (filename, verbose=False):

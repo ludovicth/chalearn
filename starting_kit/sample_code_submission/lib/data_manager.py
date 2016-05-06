@@ -23,6 +23,7 @@ except:
     import pickle
 import os
 import time
+from sklearn.decomposition import PCA
 class DataManager:
     ''' This class aims at loading and saving data easily with a cache and at generating a dictionary (self.info) in which each key is a feature (e.g. : name, format, feat_num,...).
     Methods defined here are :
@@ -85,12 +86,16 @@ class DataManager:
            # However, here we do it as a preprocessing for efficiency reason
         idx=[]
         if filter_features: # add hoc feature selection, for the example...
-            fn = min(Xtr.shape[1], 1000)       
+            fn = min(Xtr.shape[1], 100)       
+            # perform a PCA if feature number > 100
             idx = data_converter.tp_filter(Xtr, Ytr, feat_num=fn, verbose=verbose)
-            print "INDEX",idx
-            Xtr = Xtr[:,idx]
-            Xva = Xva[:,idx]
-            Xte = Xte[:,idx]  
+            
+            if fn == 100:
+                pca = PCA(n_components=int(fn))
+                Xtr = pca.fit_transform(Xtr)
+                #Xtr = Xtr[:,idx]
+                Xva = pca.transform(Xva)
+                Xte = pca.transform(Xte)
         self.feat_idx = np.array(idx).ravel()
         self.data['X_train'] = Xtr
         self.data['Y_train'] = Ytr

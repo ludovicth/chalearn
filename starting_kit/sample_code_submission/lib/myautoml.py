@@ -81,7 +81,7 @@ class MyAutoML:
                 hp_rf_all.remove(hp_rf)
 
                 da, da_score = self.train_DA(X,y, hp_lda, hp_qda)
-                nn, nn_score,pca  = self.train_NN(X,y,best_nn_lr, best_nn_bs, best_nn_af, reuse_weights)
+                nn, nn_score  = self.train_NN(X,y,best_nn_lr, best_nn_bs, best_nn_af, reuse_weights)
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # initialize the best classifiers
                 best_da, best_da_score = da, da_score
@@ -127,7 +127,7 @@ class MyAutoML:
                     reuse_weights = True
 
                 da, da_score = self.train_DA(X,y, hp_lda,hp_qda)
-                nn, nn_score,pca  = self.train_NN(X,y,nn_lr, nn_bs, nn_af, reuse_weights)
+                nn, nn_score  = self.train_NN(X,y,nn_lr, nn_bs, nn_af, reuse_weights)
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # update the best classifiers
                 if nn_score > best_nn_score:
@@ -241,10 +241,6 @@ class MyAutoML:
         Tunes neural net with hp.    
         '''
         n_samples, n_feat = X.shape
-        n_pca = max(n_feat/5, 100)
-        pca = PCA(n_components=int(n_pca))
-        X = pca.fit_transform(X)
-        n_samples, n_feat = X.shape
 
         b_size = int(n_samples/bs)
         hidden_units = 400  #will be changed to use values from hyperparameter list
@@ -269,6 +265,7 @@ class MyAutoML:
             
             clf.fit(X_train, y_train, nb_epoch=5, batch_size=b_size, verbose = 0)
             cv_pred = clf.predict(X_test, batch_size = b_size)
+
             score = eval(self.metric + '(y_test[:,None], cv_pred, "' + self.task + '")')
             score_total += score
 
@@ -277,7 +274,7 @@ class MyAutoML:
         best_score = score_total/cv_folds
         best_clf = clf
 
-        return best_clf, best_score, pca
+        return best_clf, best_score
 
     def train_RF(self, X, y, n_est):
         '''
@@ -314,7 +311,7 @@ class MyAutoML:
         rf.fit(X,y)
         return rf, score
 
-    def ensemble_CV(self, da, nn, pca, rf, X, y):
+    def ensemble_CV(self, da, nn, rf, X, y):
         '''
         Input:
             da - best da classifier
@@ -327,22 +324,14 @@ class MyAutoML:
 
         Used to find out if ensemble method does better at CV then individual classifier.
         '''
-        pred = self.ensemble_predict(da,nn,pca, rf,X)
-
-        if self.metric == 'r2_metric':
-            score = r2_metric(y, pred)
-        if self.metric == 'auc_metric':
-            score = auc_metric(y, pred)
-        if self.metric == 'bac_metric': 
-            score = bac_metric(y, pred)
-        if self.metric == 'f1_metric':
-            score = f1_metric(y, pred)
-        if self.metric == 'pac_metric':
-            score = pac_metric(y, pred)
+        pred = self.ensemble_predict(da,nn, rf,X)
+        print pred
+        
+        score = eval(self.metric + '(y[:,None], pred[:,None], "' + self.task + '")')
 
         return score
 
-    def ensemble_predict(self, da, nn, pca, rf, test):
+    def ensemble_predict(self, da, nn, rf, test):
         '''
         Input:
             da - best da classifier
@@ -357,17 +346,9 @@ class MyAutoML:
         # We predict the new values for the test matrix, using the different input classifiers
         # WARNING: is test shape adapted? What about multiclass classification problems?
         votes = np.zeros((test.shape[0], 3))
-        print "da.predict(test)[:,None].shape",da.predict(test)[:,None].shape
-        print votes.shape
-
-        test_pca = pca.transform(test)[:,None]
-        #print test.shape
-        #print test_pca.reshape(test_pca.shape[0],-1)
-        #print test_pca.shape
-        test_pca = test_pca.reshape(test_pca.shape[0],-1).shape
-
+        
         votes[:, 0] = da.predict(test)
-        votes[:, 1] = nn.predict(np.asarray(test_pca))
+        votes[:, 1] = nn.predict(test).ravel()
         votes[:, 2] = rf.predict(test)
         
         # We make them vote, and build the final y_pred using those votes
@@ -379,4 +360,4 @@ class MyAutoML:
             argmax = np.argmax(counts)
             y_pred.append(sample[argmax])
 
-        return y_pred
+        return np.asarray(y_pred)
