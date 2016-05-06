@@ -7,6 +7,7 @@ from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
 import operator
 import copy
+import libscores
 
 class MyAutoML:
     '''
@@ -90,11 +91,26 @@ class MyAutoML:
             X - data matrix (train_num, feat_num)
             y - target labels matrix (train_num, label_num)
         Output:
+            pred - predictions on X
             score - CV score of ensemble classifier
 
         Used to find out if ensemble method does better at CV then individual classifier.
         '''
-        return score
+        pred = self.ensemble_predict(da,nn,rf,X,y)
+        self.metric
+
+        if self.metric == 'r2_metric':
+            score = libscores.r2_metric(y, pred)
+        if self.metric == 'auc_metric':
+            score = libscores.auc_metric(y, pred)
+        if self.metric == 'bac_metric': 
+            score = libscores.bac_metric(y, pred)
+        if self.metric == 'f1_metric':
+            score = libscores.f1_metric(y, pred)
+        if self.metric == 'pac_metric':
+            score = libscores.pac_metric(y, pred)
+
+        return pred, score
 
     def ensemble_predict(self, da, nn, rf, test):
         '''
