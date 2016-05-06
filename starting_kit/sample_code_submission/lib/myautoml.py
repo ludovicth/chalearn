@@ -7,6 +7,7 @@ from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
 import operator
 import copy
+import libscores
 
 class MyAutoML:
     '''
