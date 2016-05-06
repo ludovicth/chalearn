@@ -47,7 +47,26 @@ class MyAutoML:
 
         Find best DA classifier.
         '''
-        return best_clf, best_score
+
+        # We try the LDA
+        lda = LinearDiscriminantAnalysis()
+        grid_result_lda = grid_search.GridSearchCV(lda, hp)
+        grid_result_lda.fit(X, y)
+        best_clf_lda = grid_result_lda.best_estimator_
+        best_score_lda = grid_result_lda.best_score_
+        
+        # We do the same for the QDA
+        qda = QuadraticDiscriminantAnalysis()
+        grid_result_qda = grid_search.GridSearchCV(qda, hp)
+        grid_result_qda.fit(X, y)
+        best_clf_qda = grid_result_qda.best_estimator_
+        best_score_qda = grid_result_qda.best_score_
+        
+        # We keep the best one
+        if(best_score_qda > best_score_lda):
+            return best_clf_qda, best_score_qda
+        else:
+            return best_clf_lda, best_score_lda
 
     def train_NN(self, X, y, hp):
         '''
@@ -79,6 +98,13 @@ class MyAutoML:
 
         Tunes random forest with hp.    
         '''
+
+        rf = RandomForestClassifier()
+        grid_result = grid_search.GridSearchCV(rf, hp)
+        grid_result.fit(X, y)
+        best_clf = grid_result.best_estimator_
+        best_score = grid_result.best_score_
+        
         return best_clf, best_score
 
     def ensemble_CV(self, da, nn, rf, X, y):
@@ -94,6 +120,18 @@ class MyAutoML:
 
         Used to find out if ensemble method does better at CV then individual classifier.
         '''
+
+        # We predict the new values for the test matrix, using the different input classifiers
+        # WARNING: is test shape adapted? What about multiclass classification problems?
+        votes = {}
+        votes['y_pred_da'] = rf.predict(test)
+        votes['y_pred_nn'] = da.predict(test)
+        votes['y_pred_rf'] = nn.predict(test)
+        
+        # We make them vote, and build the final y_pred using those votes
+        y_pred = []
+        # WARNING: TODO [...]
+
         return score
 
     def ensemble_predict(self, da, nn, rf, test):
