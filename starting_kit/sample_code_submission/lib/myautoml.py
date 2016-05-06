@@ -69,6 +69,9 @@ class MyAutoML:
 
         while ((tmp_time-start) < time_budget):
             # initialize best classifiers during first cycle
+            print "------------------------------------- "
+            print "Cycle ", cycle_count
+            print "------------------------------------- "
             if cycle_count == 0:
                 
                 hp_qda = choice(hp_qda_all)
@@ -80,8 +83,11 @@ class MyAutoML:
                 hp_rf = hp_rf_all[0]
                 hp_rf_all.remove(hp_rf)
 
+                print "Training da..."
                 da, da_score = self.train_DA(X,y, hp_lda, hp_qda)
+                print "Training nn..."
                 nn, nn_score  = self.train_NN(X,y,best_nn_lr, best_nn_bs, best_nn_af, reuse_weights)
+                print "Training rf..."
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # initialize the best classifiers
                 best_da, best_da_score = da, da_score
@@ -126,8 +132,11 @@ class MyAutoML:
                     nn_lr = best_nn_lr
                     reuse_weights = True
 
+                print "Training da..."
                 da, da_score = self.train_DA(X,y, hp_lda,hp_qda)
+                print "Training nn..."
                 nn, nn_score  = self.train_NN(X,y,nn_lr, nn_bs, nn_af, reuse_weights)
+                print "Training rf..."
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # update the best classifiers
                 if nn_score > best_nn_score:
@@ -152,16 +161,21 @@ class MyAutoML:
             # get cross-validation score for ensemble method only if the best weak learners have changed 
             # (otherwise we would just recompute the same thing)
             if (nn_changed or rf_changed or da_changed): 
+                print "Ensembling..."
                 ensemble_score = self.ensemble_CV(best_da, best_nn, best_rf,X,y)
 
                 # if the ensemble method has a better cv metric, use it. Otherwise, pick best classifier from the weak learners
                 if ((ensemble_score >= best_nn_score) and (ensemble_score>= best_rf_score) and (ensemble_score >= best_da_score)):
+                    print "Best score is by ensembling", ensemble_score
                     p = self.ensemble_predict(da,nn,rf,test)
                 elif ((best_nn_score >= ensemble_score) and (best_nn_score >= best_rf_score) and (best_nn_score >= best_da_score)):
+                    print "Best score is NN", best_nn_score
                     p = best_nn.predict(test)
                 elif ((best_rf_score>= ensemble_score) and (best_rf_score >= best_nn_score) and (best_rf_score >= best_da_score)):
+                    print "Best score is RF", best_rf_score
                     p = best_rf.predict(test)
                 elif ((best_da_score>= ensemble_score) and (best_da_score >= best_nn_score) and (best_da_score >= best_rf_score)):
+                    print "Best score is DA", best_da_score
                     p = best_da.predict(test)
                 else:
                     print "Error during comparison of the cross validation metrics"
@@ -212,9 +226,6 @@ class MyAutoML:
         score_lda = score_total_lda/cv_folds
         score_qda = score_total_qda/cv_folds
         
-        print "Score QDA",score_qda
-        print "Score LDA",score_lda
-
         # We keep the best one
         if(score_qda > score_lda):
             qda.fit(X,y)
@@ -295,8 +306,6 @@ class MyAutoML:
         cv_folds = 10
         kf = KFold(n_samples, cv_folds, shuffle=False)
 
-        print "random forest defined", rf
-
         score_total = 0 #running total of metric score over all cv runs
         for train_index, test_index in kf:
             X_train, X_test = X[train_index], X[test_index]
@@ -325,10 +334,6 @@ class MyAutoML:
         Used to find out if ensemble method does better at CV then individual classifier.
         '''
         pred = self.ensemble_predict(da,nn, rf,X)
-        print pred
-        
-        print y
-
         score = eval(self.metric + '(y[:,None], pred[:,None], "' + self.task + '")')
 
         return score
@@ -353,10 +358,5 @@ class MyAutoML:
         votes[:, 1] = nn.predict(test).ravel()
         votes[:, 2] = rf.predict(test)
         
-        print "votes",votes
-
         y_pred = np.mean(votes, axis = 1)
-        print y_pred.shape
-        print np.mean(votes, axis = 1)
-        #print "y_pred",y_pred
         return np.asarray(y_pred)

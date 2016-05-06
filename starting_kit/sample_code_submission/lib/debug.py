@@ -39,7 +39,7 @@ qda_reg = 1000
 clf, score = M.train_DA(D.data['X_train'], D.data['Y_train'],lda_comp, qda_reg)
 
 '''
-
+'''
 D = DataManager('jasmine', input_dir, replace_missing=True, filter_features=True, max_samples=max_samples, verbose=verbose)
 M = MyAutoML(D.info, verbose=False, debug_mode = debug_mode)
 
@@ -56,9 +56,13 @@ score_ens = M.ensemble_CV(da,nn,rf,D.data['X_train'], D.data['Y_train'])
 print "LDA",score_da
 print "NN",score_nn
 print "RF",score_rf 
-print "Score ensemble is", score_ens
-
+print "Score ensemble is", score_ens''
+'''
 #print score
+
+D = DataManager('jasmine', input_dir, replace_missing=True, filter_features=True, max_samples=max_samples, verbose=verbose)
+M = MyAutoML(D.info, verbose=False, debug_mode = debug_mode)
+M.run_cycles(D.data['X_train'], D.data['Y_train'], D.data['X_test'], 60)
 
 end = time.time()
 print "Duration", end-start
