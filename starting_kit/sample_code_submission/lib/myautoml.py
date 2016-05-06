@@ -5,10 +5,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
+from sklearn import grid_search
 import operator
 import copy
 import libscores
-from sklearn.metrics.score import make_scorer
+from sklearn.metrics import make_scorer
 
 class MyAutoML:
     '''
@@ -23,7 +24,7 @@ class MyAutoML:
         self.target_num = info['target_num']
         self.task = info['task']
         self.metric = info['metric']
-        self.metric_map = { 'f1_metric': libscores.f1_metric, 'auc_metric': libscores.auc_metric, 'bac_metric': libscores.bac_metric, 'r2_metric': libscores.r2_metric, 'a_metric': libscoresa_metric, 'pac_metric': libscorespac_metric }
+        self.metric_map = { 'f1_metric': libscores.f1_metric, 'auc_metric': libscores.auc_metric, 'bac_metric': libscores.bac_metric, 'r2_metric': libscores.r2_metric, 'a_metric': libscores.a_metric, 'pac_metric': libscores.pac_metric }
 
 
     def run_cycles(self, X, y, time_budget):
@@ -52,7 +53,7 @@ class MyAutoML:
         '''
 
         # We put the callable corresponding to the metric method when we call Grid Search
-        scorer = make_scorer(metric_map[self.metric], task = self.task)
+        scorer = make_scorer(self.metric_map[self.metric], task = self.task)
 
         # We try the LDA
         lda = LinearDiscriminantAnalysis()
@@ -106,7 +107,7 @@ class MyAutoML:
         '''
 
         # We put the callable corresponding to the metric method when we call Grid Search
-        scorer = make_scorer(metric_map[self.metric], task = self.task)
+        scorer = make_scorer(self.metric_map[self.metric], task = self.task)
 
         rf = RandomForestClassifier()
         grid_result = grid_search.GridSearchCV(rf, hp, scoring = scorer)
