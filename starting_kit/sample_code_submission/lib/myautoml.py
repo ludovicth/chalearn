@@ -41,36 +41,43 @@ class MyAutoML:
         cycle_count = 0
         tmp_time = time.time()
 
-        while ((tmp_time-start) < time_budget):
-            hp_nn_all = {}
-            hp_nn_all['num_hidden'] = [10,20,30,40,50,75,100]
-            hp_rf_all = {}
-            hp_rf_all['n_estimators'] = [20,50,100,200,300,400,500,600,700,800,900,1000]
-            hp_lda_all = {}
-            hp_lda_all['n_components'] = [1,10,50,100,200,300,400,500,600,700,800,1000]
-            hp_qda_all = {}
-            hp_qda_all['reg_param'] =[.00001,.0001,.001,.01,.1,1,10,100,1000,10000]
+        hp_nn_all = {}
+        hp_nn_all['learning_rate'] = [1e-2,1e-3,1e-4]
+        hp_nn_all['batch_size'] = [200,300,400,500]
+        hp_nn_all['activation_function'] = ['sigmoid']
+        best_nn_lr = 0.1
+        best_nn_bs = 100
+        best_nn_af = 'sigmoid'
+        reuse_weights = False
 
+        hp_rf_all = {}
+        hp_rf_all['n_estimators'] = [20,50,100,150,200,300,400,500,600,700,800,900,1000,1200,1500,2000,3000,4000,5000]
+        
+        hp_lda_all = {}
+        hp_lda_all['n_components'] = [1,10,50,100,200,300,400,500,600,700,800,1000]
+        hp_qda_all = {}
+        hp_qda_all['reg_param'] =[.00001,.0001,.001,.01,.1,1,10,100,1000,10000]
+
+        while ((tmp_time-start) < time_budget):
             # initialize best classifiers during first cycle
             if cycle_count == 0:
                 hp_qda = {}
-                tmp = random.choice(hp_qda_all.keys())
-                hp_qda[tmp] = [choice(hp_qda_all[tmp])]
+                tmp = choice(hp_qda_all['reg_param'])
+                hp_qda['reg_param'] = [tmp]
+                hp_qda_all['reg_param'].remove(tmp)
                 
                 hp_lda = {}
-                tmp = random.choice(hp_lda_all.keys())
-                hp_lda[tmp] = [choice(hp_lda_all[tmp])]
-                
-                hp_nn = {}
-                tmp = random.choice(hp_nn_all.keys())
-                hp_nn[tmp] = [choice(hp_nn_all[tmp])]
-                
+                tmp = choice(hp_lda_all['n_components'])
+                hp_lda['n_components'] = [tmp]
+                hp_lda_all['n_components'].remove(tmp)
+
                 hp_rf = {}
-                tmp = random.choice(hp_rf_all.keys())
-                hp_rf[tmp] = [choice(hp_rf_all[tmp])]
+                tmp = hp_rf_all['n_estimators'][0]
+                hp_rf['n_estimators'] = [tmp]
+                hp_rf_all['n_estimators'].remove(tmp)
 
                 da, da_score = self.train_DA(X,y, hp_lda, hp_qda)
-                nn, nn_score  = self.train_NN(X,y,hp_nn)
+                nn, nn_score  = self.train_NN(X,y,best_nn_lr, best_nn_bs, best_nn_af, reuse_weights)
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # initialize the best classifiers
                 best_da, best_da_score = da, da_score
@@ -80,31 +87,57 @@ class MyAutoML:
                 rf_changed = True
                 da_changed = True
 
-            if cycle_count >0:
+            if cycle_count > 0:
                 #set hyperparameters to test
                 hp_qda = {}
-                tmp = random.choice(hp_qda_all.keys())
-                hp_qda[tmp] = [choice(hp_qda_all[tmp])]
+                tmp = choice(hp_qda_all['reg_param'])
+                hp_qda['reg_param'] = [tmp]
+                hp_qda_all['reg_param'].remove(tmp)
                 
                 hp_lda = {}
-                tmp = random.choice(hp_lda_all.keys())
-                hp_lda[tmp] = [choice(hp_lda_all[tmp])]
-                
-                hp_nn = {}
-                tmp = random.choice(hp_nn_all.keys())
-                hp_nn[tmp] = [choice(hp_nn_all[tmp])]
+                tmp = choice(hp_lda_all['n_components'])
+                hp_lda['n_components'] = [tmp]
+                hp_lda_all['n_components'].remove(tmp)
                 
                 hp_rf = {}
-                tmp = random.choice(hp_rf_all.keys())
-                hp_rf[tmp] = [choice(hp_rf_all[tmp])]
+                tmp = hp_rf_all['n_estimators'][0]
+                hp_rf['n_estimators'] = [tmp]
+                hp_rf_all['n_estimators'].remove(tmp)
+
+                if len(hp_nn_all['learning_rate']) > 0:
+                    nn_lr = hp_nn_all['learning_rate'][0]
+                    hp_nn_all['learning_rate'].remove(nn_lr)
+                else:
+                    nn_lr = best_nn_lr
+
+                if ((len(hp_nn_all['learning_rate']) == 0) and (len(hp_nn_all['batch_size']) > 0)):
+                    nn_bs = hp_nn_all['batch_size'][0]
+                    hp_nn_all['batch_size'].remove(nn_bs)
+                else:
+                    nn_bs = best_nn_bs
+
+                if ((len(hp_nn_all['learning_rate']) == 0) and (len(hp_nn_all['batch_size']) > 0) and (len(hp_nn_all['activation_function']) > 0)):
+                    nn_af = hp_nn_all['activation_function'][0]
+                    hp_nn_all['activation_function'].remove(nn_af)
+                else:
+                    nn_af = best_nn_af
+
+                if ((len(hp_nn_all['learning_rate']) == 0) and (len(hp_nn_all['batch_size']) > 0) and (len(hp_nn_all['activation_function']) == 0)):
+                    nn_af = best_nn_af
+                    nn_bs = best_nn_bs
+                    nn_lr = best_nn_lr
+                    reuse_weights = True
 
                 da, da_score = self.train_DA(X,y, hp_lda,hp_qda)
-                nn, nn_score  = self.train_NN(X,y,hp_nn)
+                nn, nn_score  = self.train_NN(X,y,nn_lr, nn_bs, nn_af, reuse_weights)
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # update the best classifiers
                 if nn_score > best_nn_score:
                     best_nn, best_nn_score = nn, nn_score
                     nn_changed = True
+                    best_nn_af = nn_af
+                    best_nn_bs = nn_bs
+                    best_nn_lr = nn_lr
                 else:
                     nn_changed = False
                 if rf_score > best_rf_score:
