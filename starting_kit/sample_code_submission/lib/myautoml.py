@@ -34,7 +34,7 @@ class MyAutoML:
         While there is still time budget left, tune all 3 classifiers in each cycle predicts on best classifier (including ensemble). For each cycle, increase size of hyperparameters to tune.
         '''
 
-    def train_DA(self, X, y, hp):
+    def train_DA(self, X, y, hp_lda, hp_qda):
         '''
         Input: 
             None
@@ -52,14 +52,14 @@ class MyAutoML:
 
         # We try the LDA
         lda = LinearDiscriminantAnalysis()
-        grid_result_lda = grid_search.GridSearchCV(lda, hp)
+        grid_result_lda = grid_search.GridSearchCV(lda, hp_lda)
         grid_result_lda.fit(X, y)
         best_clf_lda = grid_result_lda.best_estimator_
         best_score_lda = grid_result_lda.best_score_
         
         # We do the same for the QDA
         qda = QuadraticDiscriminantAnalysis()
-        grid_result_qda = grid_search.GridSearchCV(qda, hp)
+        grid_result_qda = grid_search.GridSearchCV(qda, hp_qda)
         grid_result_qda.fit(X, y)
         best_clf_qda = grid_result_qda.best_estimator_
         best_score_qda = grid_result_qda.best_score_
@@ -125,17 +125,6 @@ class MyAutoML:
         Used to find out if ensemble method does better at CV then individual classifier.
         '''
 
-        # We predict the new values for the test matrix, using the different input classifiers
-        # WARNING: is test shape adapted? What about multiclass classification problems?
-        votes = {}
-        votes['y_pred_da'] = rf.predict(test)
-        votes['y_pred_nn'] = da.predict(test)
-        votes['y_pred_rf'] = nn.predict(test)
-        
-        # We make them vote, and build the final y_pred using those votes
-        y_pred = []
-        # WARNING: TODO [...]
-
         return score
 
     def ensemble_predict(self, da, nn, rf, test):
@@ -149,4 +138,21 @@ class MyAutoML:
         Output:
             pred - predictions (test_num, target_num)
         '''
-        return pred
+
+        # We predict the new values for the test matrix, using the different input classifiers
+        # WARNING: is test shape adapted? What about multiclass classification problems?
+        votes = np.zeros((test.shape[0], 3))
+        votes[:, 0] = da.predict(test)
+        votes[:, 1] = nn.predict(test)
+        votes[:, 2] = rf.predict(test)
+        
+        # We make them vote, and build the final y_pred using those votes
+        y_pred = []
+        for index in range(votes.shape[0]):
+            sample = votes[index]
+            sample = sample.astype(int)
+            counts = np.bincount(sample)
+            argmax = np.argmax(counts)
+            y_pred.append(sample[argmax])
+
+        return y_pred
