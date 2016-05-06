@@ -317,6 +317,18 @@ class MyAutoML:
 
         Used to find out if ensemble method does better at CV then individual classifier.
         '''
+        pred = self.ensemble_predict(da,nn,rf,X,y)
+
+        if self.metric == 'r2_metric':
+            score = r2_metric(y, pred)
+        if self.metric == 'auc_metric':
+            score = auc_metric(y, pred)
+        if self.metric == 'bac_metric': 
+            score = bac_metric(y, pred)
+        if self.metric == 'f1_metric':
+            score = f1_metric(y, pred)
+        if self.metric == 'pac_metric':
+            score = pac_metric(y, pred)
 
         return score
 
