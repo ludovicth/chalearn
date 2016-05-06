@@ -8,6 +8,7 @@ from sklearn.feature_selection import chi2
 import operator
 import copy
 import libscores
+from sklearn.metrics.score import make_scorer
 
 class MyAutoML:
     '''
@@ -22,6 +23,7 @@ class MyAutoML:
         self.target_num = info['target_num']
         self.task = info['task']
         self.metric = info['metric']
+        self.metric_map = { 'f1_metric': libscores.f1_metric, 'auc_metric': libscores.auc_metric, 'bac_metric': libscores.bac_metric, 'r2_metric': libscores.r2_metric, 'a_metric': libscoresa_metric, 'pac_metric': libscorespac_metric }
 
 
     def run_cycles(self, X, y, time_budget):
@@ -49,18 +51,19 @@ class MyAutoML:
         Find best DA classifier.
         '''
 
-        # WARNING: put the callable corresponding to the metric method w-when you call Grid Search!!
+        # We put the callable corresponding to the metric method when we call Grid Search
+        scorer = make_scorer(metric_map[self.metric], task = self.task)
 
         # We try the LDA
         lda = LinearDiscriminantAnalysis()
-        grid_result_lda = grid_search.GridSearchCV(lda, hp_lda)
+        grid_result_lda = grid_search.GridSearchCV(lda, hp_lda, scoring = scorer)
         grid_result_lda.fit(X, y)
         best_clf_lda = grid_result_lda.best_estimator_
         best_score_lda = grid_result_lda.best_score_
         
         # We do the same for the QDA
         qda = QuadraticDiscriminantAnalysis()
-        grid_result_qda = grid_search.GridSearchCV(qda, hp_qda)
+        grid_result_qda = grid_search.GridSearchCV(qda, hp_qda, scoring = scorer)
         grid_result_qda.fit(X, y)
         best_clf_qda = grid_result_qda.best_estimator_
         best_score_qda = grid_result_qda.best_score_
@@ -102,10 +105,11 @@ class MyAutoML:
         Tunes random forest with hp.    
         '''
 
-        # WARNING: put the callable corresponding to the metric method w-when you call Grid Search!!
+        # We put the callable corresponding to the metric method when we call Grid Search
+        scorer = make_scorer(metric_map[self.metric], task = self.task)
 
         rf = RandomForestClassifier()
-        grid_result = grid_search.GridSearchCV(rf, hp)
+        grid_result = grid_search.GridSearchCV(rf, hp, scoring = scorer)
         grid_result.fit(X, y)
         best_clf = grid_result.best_estimator_
         best_score = grid_result.best_score_
