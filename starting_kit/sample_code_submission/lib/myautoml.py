@@ -48,6 +48,8 @@ class MyAutoML:
         Find best DA classifier.
         '''
 
+        # WARNING: put the callable corresponding to the metric method w-when you call Grid Search!!
+
         # We try the LDA
         lda = LinearDiscriminantAnalysis()
         grid_result_lda = grid_search.GridSearchCV(lda, hp)
@@ -98,6 +100,8 @@ class MyAutoML:
 
         Tunes random forest with hp.    
         '''
+
+        # WARNING: put the callable corresponding to the metric method w-when you call Grid Search!!
 
         rf = RandomForestClassifier()
         grid_result = grid_search.GridSearchCV(rf, hp)
