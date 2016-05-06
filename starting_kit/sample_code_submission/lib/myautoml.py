@@ -327,6 +327,8 @@ class MyAutoML:
         pred = self.ensemble_predict(da,nn, rf,X)
         print pred
         
+        print y
+
         score = eval(self.metric + '(y[:,None], pred[:,None], "' + self.task + '")')
 
         return score
@@ -351,13 +353,10 @@ class MyAutoML:
         votes[:, 1] = nn.predict(test).ravel()
         votes[:, 2] = rf.predict(test)
         
-        # We make them vote, and build the final y_pred using those votes
-        y_pred = []
-        for index in range(votes.shape[0]):
-            sample = votes[index]
-            sample = sample.astype(int)
-            counts = np.bincount(sample)
-            argmax = np.argmax(counts)
-            y_pred.append(sample[argmax])
+        print "votes",votes
 
+        y_pred = np.mean(votes, axis = 1)
+        print y_pred.shape
+        print np.mean(votes, axis = 1)
+        #print "y_pred",y_pred
         return np.asarray(y_pred)
