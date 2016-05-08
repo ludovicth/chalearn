@@ -1,6 +1,8 @@
 from data_manager import DataManager
 from myautoml import MyAutoML
 import time
+from libscores import *
+import data_io
 
 start = time.time()
 verbose = False
@@ -11,7 +13,7 @@ max_samples = 50000
  
 phase = 1
  
-input_dir = "..\..\phase"+str(phase)+"_input\\"
+input_dir = "../../phase"+str(phase)+"_input"
 output_dir = "phase"+str(phase)+"_res"
  
 
@@ -60,9 +62,15 @@ print "Score ensemble is", score_ens''
 '''
 #print score
 
-D = DataManager('jasmine', input_dir, replace_missing=True, filter_features=True, max_samples=max_samples, verbose=verbose)
-M = MyAutoML(D.info, verbose=False, debug_mode = debug_mode)
-M.run_cycles(D.data['X_train'], D.data['Y_train'], D.data['X_test'], 60)
-
-end = time.time()
-print "Duration", end-start
+input_dir = "../../phase1_input"
+datanames = data_io.inventory_data(input_dir)
+for basename in datanames:
+    D = DataManager(basename, input_dir, replace_missing=True, filter_features=True, max_samples=max_samples, verbose=verbose)
+    solution = D.data['Y_test']
+    M = MyAutoML(D.info, verbose=False, debug_mode = debug_mode)
+    p = M.run_cycles(D.data['X_train'], D.data['Y_train'], D.data['X_test'], 600)
+    np.where(p>.5,1,0).tofile('final_prediction.csv',sep='\n', format='%10.5f')
+    test_score = eval(D.info['metric'] + '(solution, p[:,None], "' + D.info['task'] + '")')
+    end = time.time()
+    print "Duration", end-start
+    print "Test score:" , basename , test_score

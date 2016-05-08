@@ -58,7 +58,7 @@ class MyAutoML:
         hp_nn_all['activation_function'] = ['sigmoid']
         best_nn_lr = 0.1
         best_nn_bs = 100
-        best_nn_af = 'sigmoid'
+        best_nn_af = 'tanh'
         reuse_weights = False
 
 
@@ -83,11 +83,26 @@ class MyAutoML:
                 hp_rf = hp_rf_all[0]
                 hp_rf_all.remove(hp_rf)
 
+                print "*******************"
                 print "Training da..."
+                print "hp_lda:", hp_lda
+                print "hp_dqa:", hp_qda
+                print "*******************"
                 da, da_score = self.train_DA(X,y, hp_lda, hp_qda)
+
+                print "*******************"
                 print "Training nn..."
+                print "nn_lr:", best_nn_lr
+                print "nn_bs:", best_nn_bs
+                print "nn_af:", best_nn_af
+                print "reuse_weights:", reuse_weights
+                print "*******************"
                 nn, nn_score  = self.train_NN(X,y,best_nn_lr, best_nn_bs, best_nn_af, reuse_weights)
+
+                print "*******************"
                 print "Training rf..."
+                print "hp_rf:", hp_rf
+                print "*******************"
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # initialize the best classifiers
                 best_da, best_da_score = da, da_score
@@ -126,17 +141,31 @@ class MyAutoML:
                 else:
                     nn_af = best_nn_af
 
-                if ((len(hp_nn_all['learning_rate']) == 0) and (len(hp_nn_all['batch_size']) > 0) and (len(hp_nn_all['activation_function']) == 0)):
+                if ((len(hp_nn_all['learning_rate']) == 0) and (len(hp_nn_all['batch_size']) == 0) and (len(hp_nn_all['activation_function']) == 0)):
                     nn_af = best_nn_af
                     nn_bs = best_nn_bs
                     nn_lr = best_nn_lr
-                    reuse_weights = True
 
+                print "*******************"
                 print "Training da..."
+                print "hp_lda:", hp_lda
+                print "hp_dqa:", hp_qda
+                print "*******************"
                 da, da_score = self.train_DA(X,y, hp_lda,hp_qda)
+
+                print "*******************"
                 print "Training nn..."
+                print "nn_lr:", nn_lr
+                print "nn_bs:", nn_bs
+                print "nn_af:", nn_af
+                print "reuse_weights:", reuse_weights
+                print "*******************"
                 nn, nn_score  = self.train_NN(X,y,nn_lr, nn_bs, nn_af, reuse_weights)
+
+                print "*******************"
                 print "Training rf..."
+                print "hp_rf:", hp_rf
+                print "*******************"
                 rf, rf_score = self.train_RF(X,y,hp_rf)
                 # update the best classifiers
                 if nn_score > best_nn_score:
@@ -162,15 +191,16 @@ class MyAutoML:
             # (otherwise we would just recompute the same thing)
             if (nn_changed or rf_changed or da_changed): 
                 print "Ensembling..."
-                ensemble_score = self.ensemble_CV(best_da, best_nn, best_rf,X,y)
+                # ensemble_score = self.ensemble_CV(best_da, best_nn, best_nn_bs, best_rf,X,y)
+                ensemble_score=0
 
                 # if the ensemble method has a better cv metric, use it. Otherwise, pick best classifier from the weak learners
                 if ((ensemble_score >= best_nn_score) and (ensemble_score>= best_rf_score) and (ensemble_score >= best_da_score)):
                     print "Best score is by ensembling", ensemble_score
-                    p = self.ensemble_predict(da,nn,rf,test)
+                    p = self.ensemble_predict(best_da,best_nn,best_rf,test)
                 elif ((best_nn_score >= ensemble_score) and (best_nn_score >= best_rf_score) and (best_nn_score >= best_da_score)):
                     print "Best score is NN", best_nn_score
-                    p = best_nn.predict(test)
+                    p = best_nn.predict(test).ravel()
                 elif ((best_rf_score>= ensemble_score) and (best_rf_score >= best_nn_score) and (best_rf_score >= best_da_score)):
                     print "Best score is RF", best_rf_score
                     p = best_rf.predict(test)
@@ -179,6 +209,11 @@ class MyAutoML:
                     p = best_da.predict(test)
                 else:
                     print "Error during comparison of the cross validation metrics"
+
+            print "nn_score", nn_score
+            print "rf_score", rf_score
+            print "da_score", da_score
+            print "ensemble_score", ensemble_score
 
             cycle_count +=1
             tmp_time = time.time()
@@ -245,16 +280,15 @@ class MyAutoML:
             reuse_weights - use previous trained weights
 
         Output: 
-            best_clf - best classifier trained with hp
+            clf - best classifier trained with hp
             best_score - CV score of best classifier
-            pca - PCA used for dimensionality reduction
 
         Tunes neural net with hp.    
         '''
         n_samples, n_feat = X.shape
 
-        b_size = int(n_samples/bs)
-        hidden_units = 400  #will be changed to use values from hyperparameter list
+        b_size = n_samples/bs
+        hidden_units = min(n_feat/4, 400)
         cv_folds = 10
         kf = KFold(n_samples, cv_folds, shuffle=False)
 
@@ -263,29 +297,25 @@ class MyAutoML:
         clf.add(Dense(hidden_units, input_dim=n_feat, activation=af))
         clf.add(Dense(self.target_num, activation = 'sigmoid'))
         sgd = SGD(lr=lr, momentum=0.0, decay=0.0, nesterov=False)
-
-        if (reuse_weights == True):
-            clf.load_weights('nn_weights.h5')
         
         clf.compile(optimizer=sgd, loss='binary_crossentropy', metrics=['accuracy'])
         
         score_total = 0 #running total of metric score over all cv runs
         for train_index, test_index in kf:
+            cv_clf = copy.deepcopy(clf)
             X_train, X_test = X[train_index], X[test_index] 
             y_train, y_test = y[train_index], y[test_index]
             
-            clf.fit(X_train, y_train, nb_epoch=5, batch_size=b_size, verbose = 0)
-            cv_pred = clf.predict(X_test, batch_size = b_size)
+            cv_clf.fit(X_train, y_train, nb_epoch=5, batch_size=b_size, verbose = 0)
+            cv_pred = clf.predict(X_test, batch_size = n_samples)
 
             score = eval(self.metric + '(y_test[:,None], cv_pred, "' + self.task + '")')
-            score_total += score
-
-        clf.save_weights('nn_weights.h5', overwrite=True)
+            score_total = score_total+score
         
         best_score = score_total/cv_folds
-        best_clf = clf
+        clf.fit(X, y, nb_epoch=5, batch_size=b_size, verbose=0)
 
-        return best_clf, best_score
+        return clf, best_score
 
     def train_RF(self, X, y, n_est):
         '''
@@ -320,7 +350,7 @@ class MyAutoML:
         rf.fit(X,y)
         return rf, score
 
-    def ensemble_CV(self, da, nn, rf, X, y):
+    def ensemble_CV(self, da, nn, nn_bs, rf, X, y):
         '''
         Input:
             da - best da classifier
@@ -333,10 +363,25 @@ class MyAutoML:
 
         Used to find out if ensemble method does better at CV then individual classifier.
         '''
-        pred = self.ensemble_predict(da,nn, rf,X)
-        score = eval(self.metric + '(y[:,None], pred[:,None], "' + self.task + '")')
+        n_samples, n_feat = X.shape
+        cv_folds = 10
+        kf = KFold(n_samples, cv_folds, shuffle=False)
 
-        return score
+        score_total = 0
+
+        for train_index, test_index in kf:
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+
+            da.fit(X_train, y_train)
+            nn.fit(X_train, y_train, verbose=0, batch_size=nn_bs)
+            rf.fit(X_train, y_train)
+            
+            cv_pred = self.ensemble_predict(da, nn, rf, X_test)
+            score = eval(self.metric + '(y_test[:,None], cv_pred[:,None], "' + self.task + '")')
+            score_total += score
+
+        return score_total/cv_folds
 
     def ensemble_predict(self, da, nn, rf, test):
         '''

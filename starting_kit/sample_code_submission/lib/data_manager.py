@@ -82,6 +82,7 @@ class DataManager:
         Ytr = Ytr[0:max_samples]
         Xva = self.loadData (os.path.join(self.input_dir, basename + '_valid.data'), verbose=verbose, replace_missing=replace_missing)
         Xte = self.loadData (os.path.join(self.input_dir, basename + '_test.data'), verbose=verbose, replace_missing=replace_missing)
+        Yte = self.loadData (os.path.join(self.input_dir, basename + '_test.solution'), verbose=verbose, replace_missing=replace_missing)
            # Normally, feature selection should be done as part of a pipeline.
            # However, here we do it as a preprocessing for efficiency reason
         idx=[]
@@ -101,6 +102,7 @@ class DataManager:
         self.data['Y_train'] = Ytr
         self.data['X_valid'] = Xva
         self.data['X_test'] = Xte
+        self.data['Y_test'] = Yte
           
     def __repr__(self):
         return "DataManager : " + self.basename
