@@ -177,10 +177,10 @@ path.append(lib_dir)
 import data_io
 from data_io import vprint
 from data_manager import DataManager
-from models import MyAutoML
+from myautoml import MyAutoML
 import psutil
 
-default_input_dir = "../sample_input/"
+default_input_dir = "..\\phase1_input\\"
 default_output_dir = "res"
 
 if __name__ == '__main__':
@@ -252,13 +252,13 @@ if __name__ == '__main__':
         # Does cross validation for all models and picks the best classifier
         # Probably need to pass in the time remaining since timekeeping needs to be done in here
         # -------------------
-        M.run_cycles(D.data['X_train'], D.data['Y_train']) 
-        vprint( verbose,  "[+] Fitting success, time spent so far %5.2f sec" % (time.time() - start))
-        vprint( verbose,  "[+] Size of trained model  %5.2f bytes" % data_io.total_size(M))
+        Y_test = M.run_cycles(D.data['X_train'], D.data['Y_train'], D.data['X_test'], time_budget) 
+        #vprint( verbose,  "[+] Fitting success, time spent so far %5.2f sec" % (time.time() - start))
+        #vprint( verbose,  "[+] Size of trained model  %5.2f bytes" % data_io.total_size(M))
 
         # Make predictions
         # -----------------
-        Y_test = M.predict(D.data['X_test'])                         
+        #Y_test = M.predict(D.data['X_test'])                         
         vprint( verbose,  "[+] Prediction success, time spent so far %5.2f sec" % (time.time() - start))
 
         # Write results

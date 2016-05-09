@@ -62,10 +62,10 @@ class MyAutoML:
         reuse_weights = False
 
 
-        hp_rf_all = [20,50,100,150,200,300,400,500,600,700,800,900,1000,1200,1500,2000,3000,4000,5000]
+        hp_rf_all = [20,50,100,150,200,300,400,500,600,700,800,900,1000,1200,1500,2000,3000,4000,5000,10000,20000,40000,80000,160000]
         
-        hp_lda_all = [1,10,50,100,200,300,400,500,600,700,800,1000]
-        hp_qda_all = [.00001,.0001,.001,.01,.1,1,10,100,1000,10000]
+        hp_lda_all = [1,10,20,30,40,50,60,70,80,90,100,200,300,400,500,600,700,800,900,1000]
+        hp_qda_all = [1e-6,.00001,.0001,.001,.01,.1,1,10,100,1000,10000,1e5,1e6, 5e-6,.00005,.0005,.005,.05,.5,5,50,500,5000,50000,5e5,5e6]
 
         while ((tmp_time-start) < time_budget):
             # initialize best classifiers during first cycle
@@ -186,7 +186,9 @@ class MyAutoML:
                     da_changed = True
                 else:
                     da_changed = False
-
+            print "Best score NN" ,best_nn_score
+            print "Best score RF" ,best_rf_score
+            print "Best score DA" ,best_da_score
             # get cross-validation score for ensemble method only if the best weak learners have changed 
             # (otherwise we would just recompute the same thing)
             if (nn_changed or rf_changed or da_changed): 
@@ -255,7 +257,7 @@ class MyAutoML:
             
             qda.fit(X_train,y_train)
             cv_pred_qda = qda.predict(X_test)
-            score_qda = eval(self.metric + '(y_test[:,None], cv_pred_lda[:,None], "' + self.task + '")')
+            score_qda = eval(self.metric + '(y_test[:,None], cv_pred_qda[:,None], "' + self.task + '")')
             score_total_qda += score_qda
 
         score_lda = score_total_lda/cv_folds
